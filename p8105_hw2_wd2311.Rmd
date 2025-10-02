@@ -11,11 +11,73 @@ library(tidyverse)
 
 
 # Problem 1
+Read and clean the data in pols-month.csv
 ```{r}
-pols_month_df = read_csv(file = "./data/pols-month.csv")
-names(pols_month_df)
+pols_df = read_csv(file = "./data/pols-month.csv")
+pols_df = 
+  janitor::clean_names(pols_df) |>
+  separate(mon, into = c("year", "month_num", "day"), convert = TRUE) |>
+  mutate(
+    month = tolower(month.name[month_num]),
+    president = if_else(prez_gop == 1, "gop", "dem")
+  ) |>
+  select(year, month, president, starts_with("gov"), starts_with("sen"),
+         starts_with("rep"), matches("^prez_"), everything()) |>
+  select(-prez_gop, -prez_dem, -day, -month_num) |>
+  arrange(year, match(month, tolower(month.name)))
+
 ```
 
+Read and clean the data in snp.csv
+```{r}
+snp_df <- read_csv(file.path("./data/snp.csv")) |>
+  janitor::clean_names() |>
+  mutate(date = mdy(date)) |>
+  transmute(
+    year  = year(date),
+    month = tolower(month(date, label = TRUE, abbr = FALSE)),
+    close
+  ) |>
+  arrange(year, match(month, tolower(month.name)))
+
+```
+
+
+tidy the unemployment data
+```{r}
+unemp_df <- read_csv(file.path("./data/unemployment.csv")) |>
+  janitor::clean_names() |>
+  pivot_longer(
+    cols = -year,
+    names_to = "month",
+    values_to = "unemployment"
+  ) |>
+  mutate(
+    month = tolower(month.name[match(str_to_title(month), month.abb)])
+  ) |>
+  arrange(year, match(month, tolower(month.name)))
+```
+
+Join the datasets by merging snp into pols, and merging unemployment into the result.
+```{r}
+pols_snp_df = 
+  left_join(pols_df, snp_df, by = c("year", "month"))
+
+merged_df =
+  left_join(pols_snp_df, unemp_df, by = c("year", "month"))
+dim(merged_df)
+summary(select(merged_df, year, month, close, unemployment, president))
+```
+Explain briefly what each dataset contained, and describe the resulting dataset (e.g. give the dimension, range of years, and names of key variables).
+### Description:
+pols_month_df provides monthly counts of national political officeholders and a 
+president indicator; snp_.csv_df contains S&P 500 closing values by date.
+unemp_loyment.csv_df reports monthly U.S. unemployment rates in wide form.
+
+After left-joining S&P into pols and then unemployment into the result, the 
+final merged dataset has 822 rows and 11 columns, spans 1947 to 2015, and its 
+key variables include year, month, president, close, unemployment, and 6 
+variables on the parties of national politicians.
 
 
 # Problem 2
