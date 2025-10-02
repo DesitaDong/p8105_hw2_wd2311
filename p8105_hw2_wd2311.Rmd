@@ -6,6 +6,8 @@ output: github_document
 ---
 ```{r}
 library(tidyverse)
+library(readxl)
+library(janitor)
 ```
 
 
@@ -81,9 +83,85 @@ variables on the parties of national politicians.
 
 
 # Problem 2
+Read and clean the Mr. Trash Wheel sheet:
 ```{r}
+MrTW_df = 
+  read_excel("./data/Trash Wheel Collection.xlsx", sheet = "Mr. Trash Wheel", 
+             skip = 1,na = c(".", "NA", ""))|>
+  clean_names() |>
+  filter(!is.na(dumpster)) |>
+  mutate(
+    sports_balls = as.integer(round(sports_balls)),
+    wheel = "Mr. Trash Wheel",
+    )|>
+  select(dumpster, wheel, everything(), where(~!all(is.na(.)))) 
+```
+
+Read and clean the Professor Trash Wheel sheet:
+```{r}
+ProfTW_df = 
+  read_excel("./data/Trash Wheel Collection.xlsx", sheet = "Professor Trash Wheel", 
+             skip = 1,na = c(".", "NA", ""))|>
+  clean_names() |>
+  filter(!is.na(dumpster)) |>
+  mutate(
+    wheel = "Professor Trash Wheel",
+    )|>
+  select(dumpster, wheel, everything(), ) 
 
 ```
+
+
+Read and clean the Professor Gwynnda sheet:
+```{r}
+Gwynns_df = 
+  read_excel("./data/Trash Wheel Collection.xlsx", sheet = "Gwynns Falls Trash Wheel", 
+             skip = 1,na = c(".", "NA", ""))|>
+  clean_names() |>
+  filter(!is.na(dumpster)) |>
+  mutate(
+    wheel = "Professor Trash Wheel",
+    )|>
+  select(dumpster, wheel, everything(), ) 
+
+```
+
+Merge the sheets
+```{r}
+std_keys <- function(df) {
+  df |>
+    mutate(
+      year  = as.integer(year),
+      month = case_when(
+        is.numeric(month) ~ tolower(month.name[pmax(1, pmin(12, month))]),
+        TRUE              ~ tolower(as.character(month))
+      )
+    )
+}
+
+MrTW_df   <- std_keys(MrTW_df)
+ProfTW_df <- std_keys(ProfTW_df)
+Gwynns_df <- std_keys(Gwynns_df)
+
+all_df <- bind_rows(MrTW_df, ProfTW_df, Gwynns_df)
+
+dim(all_df)
+names(all_df)
+
+```
+
+Write a paragraph about these data
+After cleaning and combining the three Trash Wheel datasets, the resulting tidy data frame contains 
+**`r nrow(all_df)` observations** and **`r ncol(all_df)` variables**. Each row corresponds to a dumpster 
+collection event, and key variables include the **date of collection** (`date`, `year`, `month`), the 
+**total weight of trash collected** (`weight_tons`), the **volume** (`volume_cubic_yards`), and counts of 
+specific items such as `plastic_bottles`, `polystyrene`, `cigarette_butts`, and `sports_balls`. An 
+additional variable `wheel` indicates which device (Mr. Trash Wheel, Professor Trash Wheel, or Gwynnda) 
+collected the trash.  
+
+Based on the available data, **Professor Trash Wheel** collected a total of 
+**`r scales::number(prof_total_weight_tons, accuracy = 0.01)` tons** of trash. In **June 2022**, 
+**Gwynnda** collected **`r scales::comma(gwyn_cigs_jun_2022)` cigarette butts**.
 
 
 
