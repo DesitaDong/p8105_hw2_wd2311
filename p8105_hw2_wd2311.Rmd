@@ -1,0 +1,32 @@
+---
+title: "p8105_hw2_wd2311"
+author: "wd2311"
+date: "2025-10-02"
+output: github_document
+---
+```{r}
+library(tidyverse)
+```
+
+
+
+# Problem 1
+```{r}
+pols_month_df = read_csv(file = "./data/pols-month.csv")
+names(pols_month_df)
+```
+
+
+
+# Problem 2
+```{r}
+
+```
+
+
+
+# Problem 3
+```{r}
+
+```
+
