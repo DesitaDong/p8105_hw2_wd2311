@@ -8,6 +8,7 @@ output: github_document
 library(tidyverse)
 library(readxl)
 library(janitor)
+
 ```
 
 
@@ -71,7 +72,7 @@ dim(merged_df)
 summary(select(merged_df, year, month, close, unemployment, president))
 ```
 Explain briefly what each dataset contained, and describe the resulting dataset (e.g. give the dimension, range of years, and names of key variables).
-### Description:
+
 pols_month_df provides monthly counts of national political officeholders and a 
 president indicator; snp_.csv_df contains S&P 500 closing values by date.
 unemp_loyment.csv_df reports monthly U.S. unemployment rates in wide form.
@@ -145,6 +146,16 @@ Gwynns_df <- std_keys(Gwynns_df)
 
 all_df <- bind_rows(MrTW_df, ProfTW_df, Gwynns_df)
 
+prof_total_weight_tons <- all_df |>
+  filter(wheel == "Professor Trash Wheel") |>
+  summarize(total = sum(weight_tons, na.rm = TRUE)) |>
+  pull()
+
+gwyn_cigs_jun_2022 <- all_df |>
+  filter(wheel == "Gwynnda Trash Wheel", year == 2022, month == "june") |>
+  summarize(total = sum(cigarette_butts, na.rm = TRUE)) |>
+  pull()
+
 dim(all_df)
 names(all_df)
 
@@ -166,7 +177,95 @@ Based on the available data, **Professor Trash Wheel** collected a total of
 
 
 # Problem 3
+Import and tidy the data
 ```{r}
+zip_path  <- "data/Zip Codes.csv"
+zori_path <- "data/Zip_zori_uc_sfrcondomfr_sm_month_NYC.csv"
 
+zip_lu =
+  read_csv(zip_path) |>
+  clean_names() |>
+  mutate(zip_code = as.character(zip_code)) |>
+  rename(
+    borough     = county,
+    neighborhood = neighborhood  
+  ) |>
+  select(zip_code, borough, neighborhood)
+
+zori_long <- read_csv(zori_path) |>
+  clean_names() |>
+  mutate(region_name = as.character(region_name)) |>
+  pivot_longer(
+    cols = starts_with("x"),     
+    names_to = "date_chr",
+    values_to = "zori"
+  ) |>
+  mutate(
+    date = as.Date(gsub("^x", "", gsub("_", "-", date_chr))),
+    .keep = "unused"
+  ) |>
+  arrange(region_name, date)
 ```
+merge and describe the resulting tidy dataset
+```{r}
+zori_merged <- zori_long |>
+  left_join(zip_lu, by = c("region_name" = "zip_code")) |>
+  relocate(region_name, borough, neighborhood, date, zori)
+
+total_obs  <- nrow(zori_merged)
+n_zip      <- n_distinct(zori_merged$region_name)
+n_nh       <- n_distinct(na.omit(zori_merged$neighborhood))
+
+summary_list <- list(
+  total_observations   = total_obs,
+  unique_zip_codes     = n_zip,
+  unique_neighborhoods = n_nh
+)
+print(summary_list)
+```
+Description：
+total_observations：17516. unique_zip_codes: 149.unique_neighborhoods = 42.
+
+
+ZIPs that are in the ZIP file but not in Zillow
+```{r}
+zips_in_zip  <- zip_lu |> distinct(zip_code)
+zips_in_zori <- zori_long |> distinct(region_name) |> rename(zip_code = region_name)
+
+missing_zip <- zips_in_zip |> anti_join(zips_in_zori, by = "zip_code")
+n_missing <- nrow(missing_zip)
+cat("ZIPs present in ZIP file but missing in Zillow:", n_missing, "\n")
+```
+
+Description：
+171 ZIP codes appear in the ZIP code file but not in the Zillow rental dataset.
+for exmaples:
+10499 (Bronx GPO) is special-purpose or PO-box ZIPs without housing.
+11371 (LaGuardia) is airport ZIPs, not residential.
+10550 (Mount Vernon) is outside NYC’s five boroughs.
+
+
+COVID dip Jan 2021 vs Jan 2020
+```{r}
+jan_2020 <- zori_merged |>
+  filter(date == as.Date("2020-01-31")) |>
+  select(region_name, zori_2020 = zori, borough, neighborhood)
+
+jan_2021 <- zori_merged |>
+  filter(date == as.Date("2021-01-31")) |>
+  select(region_name, zori_2021 = zori)
+
+delta_2020_2021 <- jan_2020 |>
+  inner_join(jan_2021, by = "region_name") |>
+  mutate(change = zori_2021 - zori_2020) |>
+  arrange(change)
+
+top10_drop <- delta_2020_2021 |>
+  slice_head(n = 10)
+
+print(top10_drop, n = 10)
+```
+
+
+
 
